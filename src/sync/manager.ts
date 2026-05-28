@@ -772,24 +772,30 @@ export class SyncManager {
       // 按 HTML 行遍历，遇到 heading 时重置上下文，每个 heading 有独立的列表
       const lines = html.split('\n');
       const resultLines: string[] = [];
-      let currentListItems: { indent: number, content: string }[] = [];
+      let currentListItems: [number, { indent: number, content: string }][] = [];
+      const looseItems = new Set<number>(); // 记录 loose list 的列表项索引
 
       const flushList = (): string => {
         if (currentListItems.length === 0) return '';
+        // 检测是否为 loose list（任意一个项被标记为 loose）
+        const isLoose = currentListItems.some(([idx]) => looseItems.has(idx));
         // 构建嵌套列表 HTML
-        const build = (items: { indent: number, content: string }[], startIdx: number, currentIndent: number): { html: string, nextIdx: number } => {
+        const build = (items: [number, { indent: number, content: string }][], startIdx: number, currentIndent: number): { html: string, nextIdx: number } => {
           let res = '<ul>';
           let i = startIdx;
           while (i < items.length) {
-            const item = items[i];
+            const [origIdx, item] = items[i]!;
             if (!item) break;
             if (item.indent < currentIndent) break;
             else if (item.indent === currentIndent) {
-              res += `<li>${item.content}`;
+              // loose list: 用 <p> 包裹内容，提供间距
+              let content = item.content;
+              if (isLoose) content = `<p>${content}</p>`;
+              res += `<li>${content}`;
               i++;
               const next = items[i];
-              if (next && next.indent > currentIndent) {
-                const n = build(items, i, next.indent);
+              if (next && next[1].indent > currentIndent) {
+                const n = build(items, i, next[1].indent);
                 res += n.html;
                 i = n.nextIdx;
               }
@@ -800,7 +806,7 @@ export class SyncManager {
           return { html: res, nextIdx: i };
         };
         const first = currentListItems[0];
-        return first ? build(currentListItems, 0, first.indent).html : '';
+        return first ? build(currentListItems, 0, first[1].indent).html : '';
       };
 
       for (let lineIdx = 0; lineIdx < lines.length; lineIdx++) {
@@ -814,6 +820,7 @@ export class SyncManager {
         if (isHeading || isBlockquote || isTable) {
           const listHtml = flushList();
           currentListItems = [];
+          looseItems.clear();
           if (listHtml) resultLines.push(listHtml);
           resultLines.push(line);
         } else if (isListPlaceholder) {
@@ -821,7 +828,14 @@ export class SyncManager {
           const trimmed = line.trim();
           const idx = parseInt(trimmed.match(/___LIST_(\d+)___/)?.[1] ?? '0');
           const original = listLines[idx];
-          if (original) currentListItems.push(original);
+          if (original) {
+            // 检查前面是否有空行（标记为 loose list）
+            const prevLine = lineIdx > 0 ? (lines[lineIdx - 1] ?? '') : '';
+            if (prevLine.trim() === '' && currentListItems.length > 0) {
+              looseItems.add(idx);
+            }
+            currentListItems.push([idx, original]);
+          }
         } else {
           // 修复：空行且后面紧跟列表占位符（跳过连续空行）→ 不 flush，保持列表连续
           // 这样列表项之间的空行不会把一个 <ul> 拆成多个
