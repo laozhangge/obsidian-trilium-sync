@@ -788,7 +788,7 @@ export class SyncManager {
             if (!item) break;
             if (item.indent < currentIndent) break;
             else if (item.indent === currentIndent) {
-              // loose list: 用 <p> 包裹内容，提供间距
+              // loose list: 整个列表是 loose 时，所有 <li> 都用 <p> 包裹，提供间距
               let content = item.content;
               if (isLoose) content = `<p>${content}</p>`;
               res += `<li>${content}`;
