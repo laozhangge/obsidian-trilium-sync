@@ -803,7 +803,8 @@ export class SyncManager {
         return first ? build(currentListItems, 0, first.indent).html : '';
       };
 
-      for (const line of lines) {
+      for (let lineIdx = 0; lineIdx < lines.length; lineIdx++) {
+        const line = lines[lineIdx] ?? '';
         const isHeading = /^<h[1-6]>/.test(line);
         const isListPlaceholder = /^___LIST_\d+___$/.test(line.trim());
         const isBlockquote = /^<blockquote|^<aside class="admonition/.test(line);
@@ -822,6 +823,20 @@ export class SyncManager {
           const original = listLines[idx];
           if (original) currentListItems.push(original);
         } else {
+          // 修复：空行且后面紧跟列表占位符（跳过连续空行）→ 不 flush，保持列表连续
+          // 这样列表项之间的空行不会把一个 <ul> 拆成多个
+          const isEmpty = line.trim() === '';
+          if (isEmpty && currentListItems.length > 0) {
+            let hasListAhead = false;
+            for (let j = lineIdx + 1; j < lines.length; j++) {
+              const nextLine = (lines[j] ?? '').trim();
+              if (nextLine === '') continue; // 跳过连续空行
+              if (/^___LIST_\d+___$/.test(nextLine)) hasListAhead = true;
+              break;
+            }
+            if (hasListAhead) continue; // 跳过空行，不 flush
+          }
+
           // 非 heading/非占位符行：flush 当前列表（因为进入了普通段落）
           const listHtml = flushList();
           if (listHtml) {
@@ -909,16 +924,11 @@ export class SyncManager {
     // 块级元素自己控制间距，不需要 <br> 来分隔
     // 先保护用户故意留的空行（<br><br>），清理完再恢复
     const blockTags = 'h[1-6]|ul|ol|li|blockquote|div|p|hr|pre|table|thead|tbody|tr|th|td|aside';
-    // 结构性块元素（自带 margin，不需要额外空行）
-    const structuralTags = 'h[1-6]|ul|ol|blockquote|aside|hr|table|pre';
     html = html.replace(/<br><br>/g, '___BRBR___');
     // 闭合块标签后的单个 <br>：如 </h1><br> → </h1>
     html = html.replace(new RegExp(`(<\\/(${blockTags})>)<br>`, 'gi'), '$1');
     // 开放块标签前的单个 <br>：如 <br><ul> → <ul>
     html = html.replace(new RegExp(`<br>(<(${blockTags})(?:\\s[^>]*)?>)`, 'gi'), '$1');
-    // 结构性块元素之间的 ___BRBR___ 降级为单个 <br>（它们自带 margin，不需要双倍空行）
-    // 如 </ul><br><br><ul> → </ul><br><ul>，但 </p><br><br><p> 保留
-    html = html.replace(new RegExp(`(<\\/(?:${structuralTags})>)(___BRBR___)+(<(?:${structuralTags})(?:\\s[^>]*)?>)`, 'gi'), '$1<br>$3');
     // 恢复空行
     html = html.replace(/___BRBR___/g, '<br><br>');
 
