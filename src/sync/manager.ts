@@ -909,11 +909,16 @@ export class SyncManager {
     // 块级元素自己控制间距，不需要 <br> 来分隔
     // 先保护用户故意留的空行（<br><br>），清理完再恢复
     const blockTags = 'h[1-6]|ul|ol|li|blockquote|div|p|hr|pre|table|thead|tbody|tr|th|td|aside';
+    // 结构性块元素（自带 margin，不需要额外空行）
+    const structuralTags = 'h[1-6]|ul|ol|blockquote|aside|hr|table|pre';
     html = html.replace(/<br><br>/g, '___BRBR___');
     // 闭合块标签后的单个 <br>：如 </h1><br> → </h1>
     html = html.replace(new RegExp(`(<\\/(${blockTags})>)<br>`, 'gi'), '$1');
     // 开放块标签前的单个 <br>：如 <br><ul> → <ul>
     html = html.replace(new RegExp(`<br>(<(${blockTags})(?:\\s[^>]*)?>)`, 'gi'), '$1');
+    // 结构性块元素之间的 ___BRBR___ 也清理（它们自带 margin，不需要额外空行）
+    // 如 </ul><br><br><ul> → </ul><ul>，但 </p><br><br><p> 保留
+    html = html.replace(new RegExp(`(<\\/(?:${structuralTags})>)___BRBR___(<(?:${structuralTags})(?:\\s[^>]*)?>)`, 'gi'), '$1$2');
     // 恢复空行
     html = html.replace(/___BRBR___/g, '<br><br>');
 
