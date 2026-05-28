@@ -789,8 +789,9 @@ export class SyncManager {
             if (item.indent < currentIndent) break;
             else if (item.indent === currentIndent) {
               // loose list: 整个列表是 loose 时，所有 <li> 都用 <p> 包裹，提供间距
+              // 添加 <p>&nbsp;</p> 空段落匹配 Trilium 原生 loose list 格式
               let content = item.content;
-              if (isLoose) content = `<p>${content}</p>`;
+              if (isLoose) content = `<p>${content}</p><p>&nbsp;</p>`;
               res += `<li>${content}`;
               i++;
               const next = items[i];
