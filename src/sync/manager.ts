@@ -916,9 +916,9 @@ export class SyncManager {
     html = html.replace(new RegExp(`(<\\/(${blockTags})>)<br>`, 'gi'), '$1');
     // 开放块标签前的单个 <br>：如 <br><ul> → <ul>
     html = html.replace(new RegExp(`<br>(<(${blockTags})(?:\\s[^>]*)?>)`, 'gi'), '$1');
-    // 结构性块元素之间的 ___BRBR___ 也清理（它们自带 margin，不需要额外空行）
-    // 如 </ul><br><br><ul> → </ul><ul>，但 </p><br><br><p> 保留
-    html = html.replace(new RegExp(`(<\\/(?:${structuralTags})>)___BRBR___(<(?:${structuralTags})(?:\\s[^>]*)?>)`, 'gi'), '$1$2');
+    // 结构性块元素之间的 ___BRBR___ 降级为单个 <br>（它们自带 margin，不需要双倍空行）
+    // 如 </ul><br><br><ul> → </ul><br><ul>，但 </p><br><br><p> 保留
+    html = html.replace(new RegExp(`(<\\/(?:${structuralTags})>)(___BRBR___)+(<(?:${structuralTags})(?:\\s[^>]*)?>)`, 'gi'), '$1<br>$3');
     // 恢复空行
     html = html.replace(/___BRBR___/g, '<br><br>');
 
