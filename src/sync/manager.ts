@@ -827,10 +827,9 @@ export class SyncManager {
           const idx = parseInt(trimmed.match(/___LIST_(\d+)___/)?.[1] ?? '0');
           const original = listLines[idx];
           if (original) {
-            // 检查前面是否有空行（标记当前项 AND 前一个项为 loose）
+            // 检查前面是否有空行：只标记空行「前面」的那个项（<p>&nbsp;</p> 产生下方间距）
             const prevLine = lineIdx > 0 ? (lines[lineIdx - 1] ?? '') : '';
             if (prevLine.trim() === '' && currentListItems.length > 0) {
-              looseItems.add(idx);
               const lastItem = currentListItems[currentListItems.length - 1];
               if (lastItem) looseItems.add(lastItem[0]);
             }
