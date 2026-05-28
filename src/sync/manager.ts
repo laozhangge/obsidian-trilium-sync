@@ -777,8 +777,6 @@ export class SyncManager {
 
       const flushList = (): string => {
         if (currentListItems.length === 0) return '';
-        // 检测是否为 loose list（任意一个项被标记为 loose）
-        const isLoose = currentListItems.some(([idx]) => looseItems.has(idx));
         // 构建嵌套列表 HTML
         const build = (items: [number, { indent: number, content: string }][], startIdx: number, currentIndent: number): { html: string, nextIdx: number } => {
           let res = '<ul>';
@@ -788,10 +786,9 @@ export class SyncManager {
             if (!item) break;
             if (item.indent < currentIndent) break;
             else if (item.indent === currentIndent) {
-              // loose list: 整个列表是 loose 时，所有 <li> 都用 <p> 包裹，提供间距
-              // 添加 <p>&nbsp;</p> 空段落匹配 Trilium 原生 loose list 格式
+              // 只有被标记为 loose 的项才包裹 <p>&nbsp;</p>（前后有空行的项）
               let content = item.content;
-              if (isLoose) content = `<p>${content}</p><p>&nbsp;</p>`;
+              if (looseItems.has(origIdx)) content = `<p>${content}</p><p>&nbsp;</p>`;
               res += `<li>${content}`;
               i++;
               const next = items[i];
@@ -830,10 +827,12 @@ export class SyncManager {
           const idx = parseInt(trimmed.match(/___LIST_(\d+)___/)?.[1] ?? '0');
           const original = listLines[idx];
           if (original) {
-            // 检查前面是否有空行（标记为 loose list）
+            // 检查前面是否有空行（标记当前项 AND 前一个项为 loose）
             const prevLine = lineIdx > 0 ? (lines[lineIdx - 1] ?? '') : '';
             if (prevLine.trim() === '' && currentListItems.length > 0) {
               looseItems.add(idx);
+              const lastItem = currentListItems[currentListItems.length - 1];
+              if (lastItem) looseItems.add(lastItem[0]);
             }
             currentListItems.push([idx, original]);
           }
